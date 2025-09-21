@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import json
 import requests
+
 # Page setup
 st.set_page_config(page_title="AI Research Assistant", page_icon="🤖", layout="wide")
 
@@ -9,7 +10,7 @@ st.set_page_config(page_title="AI Research Assistant", page_icon="🤖", layout=
 SAVE_DIR = "saved_reports"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-def fetch_papers(query, limit=5):
+def fetch_papers(query, limit=10):
     url = f"https://api.semanticscholar.org/graph/v1/paper/search"
     params = {
         "query": query,
@@ -20,20 +21,19 @@ def fetch_papers(query, limit=5):
     if response.status_code == 200:
         return response.json().get("data", [])
     else:
-        st.error("Failed to fetch results from Semantic Scholar API.")
+        st.error("❌ Failed to fetch results from Semantic Scholar API.")
         return []
-
 
 def save_report(name, content):
     filepath = os.path.join(SAVE_DIR, f"{name}.json")
-    with open(filepath, "w") as f:
+    with open(filepath, "w", encoding='utf-8') as f:
         json.dump({"name": name, "content": content}, f)
 
 def load_reports():
     reports = []
     for file in os.listdir(SAVE_DIR):
         if file.endswith(".json"):
-            with open(os.path.join(SAVE_DIR, file), "r") as f:
+            with open(os.path.join(SAVE_DIR, file), "r", encoding='utf-8') as f:
                 reports.append(json.load(f))
     return reports
 
@@ -58,14 +58,13 @@ if page == "Home":
     - Stay ahead in your hackathon projects  
     """)
 
-    # Some styled cards
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.info("🔍 Powerful Search", icon="🔍")
+        st.info("🔍 Powerful Search")
     with col2:
-        st.success("📑 Auto Summaries", icon="📑")
+        st.success("📑 Auto Summaries")
     with col3:
-        st.warning("⚡ Research Ready", icon="⚡")
+        st.warning("⚡ Research Ready")
 
     st.markdown("---")
     st.image("https://streamlit.io/images/brand/streamlit-logo-secondary-colormark-darktext.png", 
@@ -76,13 +75,11 @@ elif page == "Research":
     st.title("🔎 Research Section")
     st.write("Search for topics, papers, or ideas below:")
 
-# Search bar
     query = st.text_input("Enter your research topic:", placeholder="e.g. LLM Agents, Quantum Computing")
 
     if query:
         st.write(f"🔍 You searched for: **{query}**")
 
-        # Suggested queries
         suggestions = [
             f"{query} in healthcare",
             f"Latest papers on {query}",
@@ -91,40 +88,54 @@ elif page == "Research":
         st.write("✨ Suggested queries:")
         for s in suggestions:
             if st.button(s):
-                query = s  # re-trigger search
+                query = s  # update query
 
-        # Fetch and display real results
         st.markdown("### 📑 Top Research Results")
         papers = fetch_papers(query)
+
         if papers:
             for idx, paper in enumerate(papers, 1):
-                authors = ", ".join(a["name"] for a in paper["authors"])
-                st.markdown(f"**{idx}. [{paper['title']}]({paper['url']})** ({paper['year']})")
+                title = paper.get('title', 'Untitled')
+                url = paper.get('url', '#')
+                year = paper.get('year', 'Unknown')
+                authors = ", ".join(a.get("name", "Unknown") for a in paper.get("authors", []))
+                abstract = paper.get("abstract", None)
+
+                st.markdown(f"**{idx}. [{title}]({url})** ({year})")
                 st.markdown(f"_Authors_: {authors}")
-                st.markdown(f"_Abstract_: {paper['abstract'][:300]}...")  # Truncate for brevity
+                if abstract:
+                    st.markdown(f"_Abstract_: {abstract[:300]}{'...' if len(abstract) > 300 else ''}")
+                else:
+                    st.markdown("_Abstract_: Not available.")
                 st.write("---")
         else:
             st.info("No results found.")
 
-        # Save option
+        # Save report
         save_name = st.text_input("💾 Save this research as:", value=query.replace(" ", "_"))
         if st.button("Save Report"):
             content = f"### Report on {query}\n\n"
             for paper in papers:
-                authors = ", ".join(a["name"] for a in paper["authors"])
-                content += f"**{paper['title']}** ({paper['year']})\n\n"
+                title = paper.get('title', 'Untitled')
+                url = paper.get('url', '#')
+                year = paper.get('year', 'Unknown')
+                authors = ", ".join(a.get("name", "Unknown") for a in paper.get("authors", []))
+                abstract = paper.get("abstract", "Abstract not available.")
+
+                content += f"**{title}** ({year})\n\n"
                 content += f"_Authors_: {authors}\n\n"
-                content += f"{paper['abstract']}\n\n"
-                content += f"[Read more]({paper['url']})\n\n---\n\n"
+                content += f"{abstract}\n\n"
+                content += f"[Read more]({url})\n\n---\n\n"
+
             save_report(save_name, content)
-            st.success(f"Report '{save_name}' saved!")
+            st.success(f"✅ Report '{save_name}' saved!")
+
 # ---------------- SAVED REPORTS PAGE ----------------
 elif page == "Saved Reports":
     st.title("📂 Saved Reports")
 
     reports = load_reports()
     if reports:
-        # Search bar
         search_term = st.text_input("🔎 Search reports")
         filtered = [r for r in reports if search_term.lower() in r["name"].lower()]
 
@@ -145,5 +156,3 @@ elif page == "Saved Reports":
                             st.rerun()
     else:
         st.info("No reports saved yet. Go to Research and save one!")
-
-
