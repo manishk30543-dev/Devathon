@@ -1,0 +1,121 @@
+import streamlit as st
+import os
+import json
+
+# Page setup
+st.set_page_config(page_title="AI Research Assistant", page_icon="🤖", layout="wide")
+
+# ----------------- Utility Functions -----------------
+SAVE_DIR = "saved_reports"
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+def save_report(name, content):
+    filepath = os.path.join(SAVE_DIR, f"{name}.json")
+    with open(filepath, "w") as f:
+        json.dump({"name": name, "content": content}, f)
+
+def load_reports():
+    reports = []
+    for file in os.listdir(SAVE_DIR):
+        if file.endswith(".json"):
+            with open(os.path.join(SAVE_DIR, file), "r") as f:
+                reports.append(json.load(f))
+    return reports
+
+def delete_report(name):
+    filepath = os.path.join(SAVE_DIR, f"{name}.json")
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
+# ---------------- Sidebar Navigation ----------------
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Home", "Research", "Saved Reports"])
+
+# ---------------- HOME PAGE ----------------
+if page == "Home":
+    st.title("🤖 Welcome to AI Research Assistant")
+    st.subheader("Your personal assistant for business professionals!")
+
+    st.write("""
+    🚀 This app helps you:
+    - Explore AI research papers quickly  
+    - Summarize insights in seconds  
+    - Stay ahead in your hackathon projects  
+    """)
+
+    # Some styled cards
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.info("🔍 Powerful Search", icon="🔍")
+    with col2:
+        st.success("📑 Auto Summaries", icon="📑")
+    with col3:
+        st.warning("⚡ Research Ready", icon="⚡")
+
+    st.markdown("---")
+    st.image("https://streamlit.io/images/brand/streamlit-logo-secondary-colormark-darktext.png", 
+             caption="Built with Streamlit")
+
+# ---------------- RESEARCH PAGE ----------------
+elif page == "Research":
+    st.title("🔎 Research Section")
+    st.write("Search for topics, papers, or ideas below:")
+
+    # Interactive search bar
+    query = st.text_input("Enter your research topic:", placeholder="e.g. LLM Agents, Quantum Computing")
+
+    if query:
+        st.write(f"🔍 You searched for: **{query}**")
+
+        # Fake interactive suggestions (later you can connect APIs like arXiv / Semantic Scholar)
+        suggestions = [
+            f"{query} in healthcare",
+            f"Latest papers on {query}",
+            f"Applications of {query} in robotics"
+        ]
+        st.write("✨ Suggested queries:")
+        for s in suggestions:
+            st.button(s)
+
+        # Example placeholder results
+        st.markdown("### 📑 Top Research Results")
+        st.write("1. Paper on ...")  
+        st.write("2. Study about ...")  
+        st.write("3. Recent trends in ...")
+
+        # Save option
+        save_name = st.text_input("💾 Save this research as:", value=query.replace(" ", "_"))
+        if st.button("Save Report"):
+            content = f"### Report on {query}\n\nThis is a placeholder research summary for {query}."
+            save_report(save_name, content)
+            st.success(f"Report '{save_name}' saved!")
+
+# ---------------- SAVED REPORTS PAGE ----------------
+elif page == "Saved Reports":
+    st.title("📂 Saved Reports")
+
+    reports = load_reports()
+    if reports:
+        # Search bar
+        search_term = st.text_input("🔎 Search reports")
+        filtered = [r for r in reports if search_term.lower() in r["name"].lower()]
+
+        if not filtered:
+            st.warning("No matching reports found.")
+        else:
+            for report in filtered:
+                with st.expander(f"📑 {report['name']}"):
+                    st.markdown(report["content"])
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.download_button("⬇️ Download", report["content"], file_name=f"{report['name']}.txt"):
+                            st.success("Downloaded successfully!")
+                    with col2:
+                        if st.button(f"🗑 Delete '{report['name']}'", key=report["name"]):
+                            delete_report(report["name"])
+                            st.warning(f"Deleted report '{report['name']}'")
+                            st.rerun()
+    else:
+        st.info("No reports saved yet. Go to Research and save one!")
+
+
