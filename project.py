@@ -1,13 +1,28 @@
 import streamlit as st
 import os
 import json
-
+import requests
 # Page setup
 st.set_page_config(page_title="AI Research Assistant", page_icon="🤖", layout="wide")
 
 # ----------------- Utility Functions -----------------
 SAVE_DIR = "saved_reports"
 os.makedirs(SAVE_DIR, exist_ok=True)
+
+def fetch_papers(query, limit=5):
+    url = f"https://api.semanticscholar.org/graph/v1/paper/search"
+    params = {
+        "query": query,
+        "limit": limit,
+        "fields": "title,authors,url,abstract,year"
+    }
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json().get("data", [])
+    else:
+        st.error("Failed to fetch results from Semantic Scholar API.")
+        return []
+
 
 def save_report(name, content):
     filepath = os.path.join(SAVE_DIR, f"{name}.json")
@@ -61,13 +76,13 @@ elif page == "Research":
     st.title("🔎 Research Section")
     st.write("Search for topics, papers, or ideas below:")
 
-    # Interactive search bar
+# Search bar
     query = st.text_input("Enter your research topic:", placeholder="e.g. LLM Agents, Quantum Computing")
 
     if query:
         st.write(f"🔍 You searched for: **{query}**")
 
-        # Fake interactive suggestions (later you can connect APIs like arXiv / Semantic Scholar)
+        # Suggested queries
         suggestions = [
             f"{query} in healthcare",
             f"Latest papers on {query}",
@@ -75,21 +90,34 @@ elif page == "Research":
         ]
         st.write("✨ Suggested queries:")
         for s in suggestions:
-            st.button(s)
+            if st.button(s):
+                query = s  # re-trigger search
 
-        # Example placeholder results
+        # Fetch and display real results
         st.markdown("### 📑 Top Research Results")
-        st.write("1. Paper on ...")  
-        st.write("2. Study about ...")  
-        st.write("3. Recent trends in ...")
+        papers = fetch_papers(query)
+        if papers:
+            for idx, paper in enumerate(papers, 1):
+                authors = ", ".join(a["name"] for a in paper["authors"])
+                st.markdown(f"**{idx}. [{paper['title']}]({paper['url']})** ({paper['year']})")
+                st.markdown(f"_Authors_: {authors}")
+                st.markdown(f"_Abstract_: {paper['abstract'][:300]}...")  # Truncate for brevity
+                st.write("---")
+        else:
+            st.info("No results found.")
 
         # Save option
         save_name = st.text_input("💾 Save this research as:", value=query.replace(" ", "_"))
         if st.button("Save Report"):
-            content = f"### Report on {query}\n\nThis is a placeholder research summary for {query}."
+            content = f"### Report on {query}\n\n"
+            for paper in papers:
+                authors = ", ".join(a["name"] for a in paper["authors"])
+                content += f"**{paper['title']}** ({paper['year']})\n\n"
+                content += f"_Authors_: {authors}\n\n"
+                content += f"{paper['abstract']}\n\n"
+                content += f"[Read more]({paper['url']})\n\n---\n\n"
             save_report(save_name, content)
             st.success(f"Report '{save_name}' saved!")
-
 # ---------------- SAVED REPORTS PAGE ----------------
 elif page == "Saved Reports":
     st.title("📂 Saved Reports")
